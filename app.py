@@ -5,8 +5,8 @@ import numpy as np
 import plotly.graph_objects as go
 
 # Título y descripción
-st.title("📊 Analizador de Acciones con Scoring Técnico")
-st.markdown("Introduce un **ticker** (por ejemplo: `AAPL`, `MSFT`, `ACN`) para analizar KPIs técnicos.")
+st.title("📊 Analizador de Acciones con Recomendación Técnica")
+st.markdown("Introduce un **ticker** (por ejemplo: `AAPL`, `MSFT`, `ACN`) para analizar KPIs técnicos y obtener una recomendación.")
 
 # Entrada del usuario
 ticker = st.text_input("Ticker de la acción", "ACN")
@@ -30,14 +30,17 @@ if st.button("📈 Analizar"):
             data["EMA_12"] = data["Close"].ewm(span=12, adjust=False).mean()
             data["EMA_26"] = data["Close"].ewm(span=26, adjust=False).mean()
             data["MACD"] = data["EMA_12"] - data["EMA_26"]
+            data["Volume_Avg_10"] = data["Volume"].rolling(window=10).mean()
 
             last = data.iloc[-1]
 
-            # Scoring simple
+            # ---------- SCORING SIMPLE ----------
             score = 0
             reasons = []
 
-            if 5 < stock.info.get("trailingPE", np.nan) < 25:
+            per = stock.info.get("trailingPE", np.nan)
+
+            if 5 < per < 25:
                 score += 1
                 reasons.append("✔️ PER entre 5 y 25")
 
@@ -57,20 +60,49 @@ if st.button("📈 Analizar"):
                 score += 1
                 reasons.append("✔️ MACD positivo")
 
+            if last["Volume"] > last["Volume_Avg_10"]:
+                score += 1
+                reasons.append("✔️ Volumen mayor al promedio")
+
             st.subheader(f"Último precio de cierre: **{last['Close']:.2f} USD**")
-            st.metric("Scoring técnico", f"{score} / 5", help="\n".join(reasons))
+            st.metric("Scoring técnico", f"{score} / 6", help="\n".join(reasons))
+
+            # ---------- RECOMENDACIÓN DE INVERSIÓN (0–100) ----------
+            rec_score = 0
+
+            # 1. Scoring base (de 6 → escala a 60 pts)
+            rec_score += (score / 6) * 60
+
+            # 2. Variación última semana (tendencia reciente)
+            last_5 = data["Close"].iloc[-5:]
+            var_pct = ((last_5[-1] - last_5[0]) / last_5[0]) * 100
+            if var_pct > 0:
+                rec_score += min(var_pct, 10)  # máx 10 pts
+            else:
+                rec_score += max(var_pct, -10)  # penalización si ha caído
+
+            # 3. Ajuste por PER (valoraciones extremas penalizan)
+            if pd.notna(per):
+                if per < 5 or per > 40:
+                    rec_score -= 10
+
+            # Limitar a [0, 100]
+            rec_score = max(0, min(100, rec_score))
+
+            st.markdown("### 🧠 Recomendación de inversión (0-100)")
+            st.slider("Nivel recomendado", 0, 100, int(rec_score), disabled=True)
+            if rec_score > 75:
+                st.success("📈 Alta recomendación de compra")
+            elif rec_score > 50:
+                st.info("⚖️ Recomendación moderada")
+            else:
+                st.warning("📉 Baja recomendación. Analiza antes de invertir.")
 
             # Mostrar tabla resumen
             st.write("### Indicadores técnicos (último día)")
-            st.dataframe(last[["Close", "SMA_20", "SMA_50", "RSI", "MACD"]].round(2))
+            st.dataframe(last[["Close", "SMA_20", "SMA_50", "RSI", "MACD", "Volume", "Volume_Avg_10"]].round(2))
 
             # Gráfico interactivo
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=data.index, y=data["Close"], name="Precio cierre", line=dict(width=2)))
-            fig.add_trace(go.Scatter(x=data.index, y=data["SMA_20"], name="SMA 20", line=dict(dash="dot")))
-            fig.add_trace(go.Scatter(x=data.index, y=data["SMA_50"], name="SMA 50", line=dict(dash="dash")))
-            fig.update_layout(title=f"Precio de {ticker.upper()} y Medias Móviles", xaxis_title="Fecha", yaxis_title="USD")
-            st.plotly_chart(fig, use_container_width=True)
+            fig.add_trace(go._
 
-    except Exception as e:
-        st.error(f"Ocurrió un error: {str(e)}")
