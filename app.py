@@ -104,5 +104,13 @@ if st.button("📈 Analizar"):
 
             # Gráfico interactivo
             fig = go.Figure()
-            fig.add_trace(go._
+            fig.add_trace(go.Scatter(x=data.index, y=data["Close"], name="Precio cierre", line=dict(width=2)))
+            fig.add_trace(go.Scatter(x=data.index, y=data["SMA_20"], name="SMA 20", line=dict(dash="dot")))
+            fig.add_trace(go.Scatter(x=data.index, y=data["SMA_50"], name="SMA 50", line=dict(dash="dash")))
+            fig.update_layout(title=f"Precio de {ticker.upper()} y Medias Móviles", xaxis_title="Fecha", yaxis_title="USD")
+            st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Ocurrió un error: {str(e)}")
+
 
