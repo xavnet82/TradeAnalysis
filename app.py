@@ -5,7 +5,6 @@ import numpy as np
 import plotly.graph_objects as go
 
 # Lista estática de los 50 tickers más representativos del S&P 500
-# (por capitalización a enero de 2025, orden solo a efectos de top-50)
 TOP50_SP500 = [
     "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "NVDA", "META", "TSLA", "BRK-B", "UNH",
     "JNJ", "V", "PG", "MA", "LLY", "JPM", "HD", "PEP", "KO", "DIS",
@@ -33,16 +32,16 @@ def fetch_and_compute_indicators(ticker: str, period: str):
     if data is None or data.empty:
         return None
 
-    # Eliminar columnas completamente vacías (por si falla descarga parcial)
+    # Eliminar filas completamente vacías
     data = data.dropna(how="all")
     if data.empty:
         return None
 
-    # Indicadores técnicos
+    # Calcular indicadores técnicos
     data["SMA_20"] = data["Close"].rolling(window=20).mean()
     data["SMA_50"] = data["Close"].rolling(window=50).mean()
 
-    # RSI 14 días (calculado manualmente)
+    # RSI 14 días (manual)
     delta = data["Close"].diff()
     gain = delta.where(delta > 0, 0.0)
     loss = -delta.where(delta < 0, 0.0)
@@ -51,16 +50,19 @@ def fetch_and_compute_indicators(ticker: str, period: str):
     rs = avg_gain / avg_loss
     data["RSI"] = 100 - (100 / (1 + rs))
 
-    # MACD (EMA 12 - EMA 26) y señal (EMA 9 del MACD)
+    # MACD
     data["EMA_12"] = data["Close"].ewm(span=12, adjust=False).mean()
     data["EMA_26"] = data["Close"].ewm(span=26, adjust=False).mean()
     data["MACD"] = data["EMA_12"] - data["EMA_26"]
 
-    # Volumen promedio de 10 días
+    # Volumen promedio 10 días
     data["Volume_Avg_10"] = data["Volume"].rolling(window=10).mean()
 
-    # Eliminar filas donde falte alguno de estos indicadores esenciales
-    data = data.dropna(subset=["SMA_20", "SMA_50", "RSI", "MACD", "Volume_Avg_10"])
+    # Ahora eliminamos filas que tengan NaN en cualquiera de las columnas generadas
+    # pero sólo en las que efectivamente existen en data.
+    cols_a_verificar = [col for col in ["SMA_20", "SMA_50", "RSI", "MACD", "Volume_Avg_10"] if col in data.columns]
+    if cols_a_verificar:
+        data = data.dropna(subset=cols_a_verificar)
     if data.empty:
         return None
 
@@ -219,4 +221,3 @@ if st.button("🔍 Analizar Top 50"):
                     st.text(row["Justificación"])
 
     st.success("✅ Análisis completado.")
-
