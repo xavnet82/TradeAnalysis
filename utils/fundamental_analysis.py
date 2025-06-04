@@ -1,3 +1,4 @@
+
 import yfinance as yf
 
 def analizar_fundamental(ticker):

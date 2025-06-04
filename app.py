@@ -1,3 +1,4 @@
+
 import streamlit as st
 import nltk
 import requests
@@ -53,8 +54,22 @@ if ticker:
         col1, col2 = st.columns([2, 1])
         with col1:
             st.subheader("📈 Resultados")
-            score_t, razones_t, df = analizar_tecnico(df)
+            score_t, razones_t, df, detalles_t, tendencias_t = analizar_tecnico(df)
             render_score_card("Análisis Técnico", score_t, razones_t, COLORS["technical"])
+
+            with st.expander("🔍 Ver detalle de indicadores técnicos"):
+                headers = ["Indicador", "Resultado", "Explicación", "Tendencia"]
+                indicadores = ["SMA20", "SMA50", "RSI", "MACD", "Volumen"]
+                for i in range(len(indicadores)):
+                    cols = st.columns([1.5, 1.5, 4, 1.5])
+                    with cols[0]:
+                        st.markdown(f"**{indicadores[i]}**")
+                    with cols[1]:
+                        st.markdown(razones_t[i])
+                    with cols[2]:
+                        st.markdown(detalles_t[i])
+                    with cols[3]:
+                        st.markdown(tendencias_t[i])
 
             score_f, razones_f = analizar_fundamental(ticker)
             render_score_card("Análisis Fundamental", score_f, razones_f, COLORS["fundamental"])
