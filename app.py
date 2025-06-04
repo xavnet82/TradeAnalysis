@@ -137,39 +137,72 @@ def analisis_fundamental(ticker):
     return puntuacion, justificacion
 
 # Análisis de Sentimiento
+import requests
+import datetime
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+# Asegúrate de tener descargado el lexicón de VADER
+nltk.download('vader_lexicon')
+
 def analisis_sentimiento(ticker):
-    nltk.download('vader_lexicon')
+    # Configuración de la API
+    API_KEY = 'TU_API_KEY'  # Reemplaza con tu clave de API
+    url = "https://free-news.p.rapidapi.com/v1/search"
+    headers = {
+        "X-RapidAPI-Key": API_KEY,
+        "X-RapidAPI-Host": "free-news.p.rapidapi.com"
+    }
+    # Parámetros de la consulta
+    querystring = {
+        "q": ticker,
+        "lang": "en",
+        "page": "1",
+        "page_size": "25"
+    }
+
+    try:
+        # Realizar la solicitud a la API
+        response = requests.get(url, headers=headers, params=querystring)
+        response.raise_for_status()
+        articles = response.json().get('articles', [])
+    except Exception as e:
+        return 50, [f"Error al obtener noticias: {e}"]
+
+    if not articles:
+        return 50, ["No se encontraron noticias recientes sobre el ticker."]
+
+    # Inicializar el analizador de sentimientos
     sia = SentimentIntensityAnalyzer()
-    tweets = []
-    for i, tweet in enumerate(sntwitter.TwitterSearchScraper(f'${ticker} lang:en').get_items()):
-        if i > 100:
-            break
-        tweets.append(tweet.content)
-    positivos = 0
-    negativos = 0
-    neutrales = 0
-    for tweet in tweets:
-        puntaje = sia.polarity_scores(tweet)
+    positivos = negativos = neutrales = 0
+
+    # Analizar el sentimiento de cada artículo
+    for article in articles:
+        texto = article.get('title', '') + ' ' + article.get('summary', '')
+        puntaje = sia.polarity_scores(texto)
         if puntaje['compound'] > 0.05:
             positivos += 1
         elif puntaje['compound'] < -0.05:
             negativos += 1
         else:
             neutrales += 1
+
     total = positivos + negativos + neutrales
-    if total == 0:
-        return 50, ["No se encontraron tweets."]
-    porcentaje_positivo = (positivos / total) * 100
+    porcentaje_positivo = (positivos / total) * 100 if total else 0
+
+    # Determinar la puntuación y justificación
     if porcentaje_positivo > 60:
         puntuacion = 90
-        justificacion = ["Sentimiento positivo predominante en redes sociales."]
+        justificacion = ["Sentimiento positivo predominante en las noticias."]
     elif porcentaje_positivo < 40:
         puntuacion = 30
-        justificacion = ["Sentimiento negativo predominante en redes sociales."]
+        justificacion = ["Sentimiento negativo predominante en las noticias."]
     else:
         puntuacion = 60
-        justificacion = ["Sentimiento mixto en redes sociales."]
+        justificacion = ["Sentimiento mixto en las noticias."]
+
     return puntuacion, justificacion
+
 
 # Ejecución principal
 if ticker:
