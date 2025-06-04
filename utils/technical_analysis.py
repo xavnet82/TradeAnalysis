@@ -54,6 +54,18 @@ def analizar_tecnico(df):
     volume = float(last['Volume'])
     avg_volume = float(df['Volume'].rolling(10).mean().iloc[-1])
 
+    # Nuevo resumen de recomendación
+    positivos = sum(1 for r in justificaciones if r.startswith("✔️"))
+    if score >= 75 and positivos >= 4:
+        recomendacion = "📈 Alta señal de compra técnica"
+    elif score >= 50 and positivos >= 3:
+        recomendacion = "⚖️ Señales mixtas, considerar mantener"
+    else:
+        recomendacion = "📉 Señales débiles, mejor evitar entrada"
+    
+    return score, justificaciones, df, detalles, tendencias, recomendacion
+
+
     def add_result(cond, pts, justif, detail, trend):
         nonlocal score
         if cond:
