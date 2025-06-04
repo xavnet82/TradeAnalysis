@@ -94,11 +94,11 @@ if ticker:
             if usar_ia:
                 from openai import OpenAI
 
-                prompt = f"""Resume y analiza los siguientes indicadores para la acción {ticker}:
+                prompt = f"""Analiza los siguientes indicadores para la acción {ticker}:
                 - Score técnico: {score_t}, razones: {', '.join(razones_t)}
                 - Score fundamental: {score_f}, razones: {', '.join(razones_f)}
                 - Sentimiento: {score_s}, razones: {', '.join(razones_s)}
-                - Score global: {final_score}/100, recomendación: {resumen}"""
+                - Score global: {final_score}/100, recomendación: {resumen}, y enriquece la información con un análisis online en profundida, generando una recomendación resumida con todos los parámetros y overview general"""
 
                 try:
                     client = OpenAI(api_key=st.secrets["openai_api_key"])
