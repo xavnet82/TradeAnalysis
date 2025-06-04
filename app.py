@@ -184,6 +184,4 @@ if ticker:
             st.write(f"- {j}")
 
         st.subheader("💼 Análisis Fundamental")
-
-::contentReference[oaicite:75]{index=75}
  
