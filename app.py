@@ -169,7 +169,8 @@ if ticker:
                 - Score técnico: {score_t}, razones: {', '.join(razones_t)}
                 - Score fundamental: {score_f}, razones: {', '.join(razones_f)}
                 - Sentimiento: {score_s}, razones: {', '.join(razones_s)}
-                - Score global: {final_score}/100, recomendación: {resumen}, y enriquece la información con un análisis online en profundidad, generando una recomendación resumida con todos los parámetros y overview general"""
+                - Score global: {final_score}/100, recomendación: {resumen}
+                Enriquece la información con un análisis online en profundidad en base a tu contexto y genera una recomendación adicional (puede ser superior o inferior a la realizada hasta el momento)"""
 
                 try:
                     client = OpenAI(api_key=st.secrets["openai_api_key"])
