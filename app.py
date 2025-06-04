@@ -3,7 +3,14 @@ import nltk
 import requests
 
 from config import COLORS
-from utils.data_fetcher import descargar_datos, get_sp500_tickers
+from utils.data_fetcher import (
+    descargar_datos,
+    get_sp500_tickers,
+    get_nasdaq100_tickers,
+    get_eurostoxx50_tickers,
+    get_ibex35_tickers,
+    get_nasdaq_tickers
+)
 from utils.technical_analysis import analizar_tecnico
 from utils.fundamental_analysis import analizar_fundamental
 from utils.sentiment_analysis import analizar_sentimiento_noticias
@@ -34,8 +41,44 @@ st.markdown("""
 
 st.title("📊 Análisis Integral de Acciones")
 
-tickers = get_sp500_tickers()
-ticker = st.selectbox("Selecciona una acción del S&P 500", tickers, index=tickers.index("AAPL") if "AAPL" in tickers else 0)
+# NUEVO: Selector avanzado de ticker
+st.sidebar.header("🔎 Selección de Activo")
+
+tipo_activo = st.sidebar.selectbox("Tipo de activo", ["Índice", "Acción"])
+
+ticker = None
+tickers = []
+
+if tipo_activo == "Índice":
+    indice = st.sidebar.selectbox("Índice disponible", ["S&P 500", "Nasdaq 100", "EuroStoxx 50"])
+
+    if indice == "S&P 500":
+        tickers = get_sp500_tickers()
+    elif indice == "Nasdaq 100":
+        tickers = get_nasdaq100_tickers()
+    elif indice == "EuroStoxx 50":
+        tickers = get_eurostoxx50_tickers()
+
+    ticker = st.sidebar.selectbox("Selecciona un valor", tickers)
+
+elif tipo_activo == "Acción":
+    pais = st.sidebar.selectbox("País", ["EE.UU.", "España"])
+    mercado = st.sidebar.selectbox("Mercado", {
+        "EE.UU.": ["NASDAQ", "NYSE"],
+        "España": ["BME"]
+    }[pais])
+
+    if pais == "EE.UU." and mercado == "NASDAQ":
+        tickers = get_nasdaq_tickers()
+    elif pais == "España":
+        tickers = get_ibex35_tickers()
+    else:
+        tickers = []
+
+    if tickers:
+        ticker = st.sidebar.selectbox("Selecciona una acción", tickers)
+    else:
+        st.sidebar.warning("No hay datos disponibles para este mercado.")
 
 def resumen_final(score_t, score_f, score_s):
     media = int((score_t + score_f + score_s) / 3)
@@ -57,7 +100,6 @@ if ticker:
             render_score_card("Análisis Técnico", score_t, razones_t, COLORS["technical"])
 
             with st.expander("🔍 Ver detalle de indicadores técnicos"):
-                headers = ["Indicador", "Resultado", "Explicación", "Tendencia"]
                 indicadores = ["SMA20", "SMA50", "RSI", "MACD", "Volumen"]
                 for i in range(len(indicadores)):
                     cols = st.columns([1.5, 1.5, 4, 1.5])
@@ -125,4 +167,3 @@ if ticker:
                 st.info("La generación de análisis por IA está desactivada.")
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
-
