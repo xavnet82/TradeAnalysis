@@ -1,4 +1,3 @@
-
 import streamlit as st
 import nltk
 import requests
@@ -36,7 +35,7 @@ st.markdown("""
 st.title("📊 Análisis Integral de Acciones")
 
 tickers = get_sp500_tickers()
-ticker = st.selectbox("Selecciona una acción del S&P 500", tickers, index=tickers.index("AAPL"))
+ticker = st.selectbox("Selecciona una acción del S&P 500", tickers, index=tickers.index("AAPL") if "AAPL" in tickers else 0)
 
 def resumen_final(score_t, score_f, score_s):
     media = int((score_t + score_f + score_s) / 3)
@@ -78,8 +77,7 @@ if ticker:
             st.subheader("🧠 Análisis Generado por IA")
             usar_ia = st.toggle("¿Generar análisis con IA?", value=True)
             if usar_ia:
-                import time
-                import openai
+                from openai import OpenAI
 
                 prompt = f"""Resume y analiza los siguientes indicadores para la acción {ticker}:
                 - Score técnico: {score_t}, razones: {', '.join(razones_t)}
@@ -87,10 +85,9 @@ if ticker:
                 - Sentimiento: {score_s}, razones: {', '.join(razones_s)}
                 - Score global: {final_score}/100, recomendación: {resumen}"""
 
-                openai.api_key = st.secrets["openai_api_key"]
-
                 try:
-                    response = openai.ChatCompletion.create(
+                    client = OpenAI(api_key=st.secrets["openai_api_key"])
+                    response = client.chat.completions.create(
                         model="gpt-4o",
                         messages=[{"role": "user", "content": prompt}],
                         stream=True,
@@ -100,16 +97,13 @@ if ticker:
                     full_response = ""
                     placeholder = st.empty()
                     for chunk in response:
-                        if "choices" in chunk and len(chunk["choices"]) > 0:
-                            delta = chunk["choices"][0]["delta"]
-                            content = delta.get("content", "")
-                            full_response += content
-                            placeholder.markdown(full_response)
+                        content = chunk.choices[0].delta.content or ""
+                        full_response += content
+                        placeholder.markdown(full_response)
 
                 except Exception as e:
                     st.error(f"Error al llamar a OpenAI: {e}")
             else:
                 st.info("La generación de análisis por IA está desactivada.")
-
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
