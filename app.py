@@ -1,4 +1,3 @@
-
 import streamlit as st
 import nltk
 import requests
@@ -74,6 +73,10 @@ if ticker:
             score_f, razones_f = analizar_fundamental(ticker)
             render_score_card("Análisis Fundamental", score_f, razones_f, COLORS["fundamental"])
 
+            with st.expander("🔍 Ver detalle de indicadores fundamentales"):
+                for razon in razones_f:
+                    st.markdown(f"- {razon}")
+
             score_s, razones_s = analizar_sentimiento_noticias(ticker)
             render_score_card("Sentimiento en Noticias", score_s, razones_s, COLORS["sentiment"])
 
@@ -122,3 +125,4 @@ if ticker:
                 st.info("La generación de análisis por IA está desactivada.")
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
+
