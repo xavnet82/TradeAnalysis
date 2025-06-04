@@ -1,83 +1,73 @@
 import requests
 from bs4 import BeautifulSoup
+import time
 
-def extraer_tabla_macrotrends(ticker, concepto):
-    """
-    Extrae la tabla financiera histórica para un concepto (revenue, net-income, etc.).
-    """
-    url = f"https://www.macrotrends.net/stocks/charts/{ticker}/xyz/{concepto}"
+def obtener_metricas_finviz(ticker):
+    url = f"https://finviz.com/quote.ashx?t={ticker}"
     headers = {"User-Agent": "Mozilla/5.0"}
     r = requests.get(url, headers=headers)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "html.parser")
+    time.sleep(1)  # para evitar bloqueo
 
-    # Encuentra todas las tablas visibles
-    tablas = soup.find_all("table", {"class": "historical_data_table table"})
-
-    if not tablas:
-        raise ValueError(f"No se encontró tabla para {concepto}")
-
-    datos = []
-    filas = tablas[0].find_all("tr")[1:]  # omitir header
-    for fila in filas:
-        celdas = fila.find_all("td")
-        if len(celdas) >= 2:
-            try:
-                año = celdas[0].text.strip()
-                valor = celdas[1].text.strip().replace("$", "").replace(",", "")
-                valor = float(valor)
-                datos.append((año, valor))
-            except:
-                continue
-    return datos
+    tabla = soup.find("table", class_="snapshot-table2")
+    celdas = tabla.find_all("td")
+    data = {}
+    for i in range(0, len(celdas), 2):
+        key = celdas[i].text.strip()
+        value = celdas[i+1].text.strip()
+        data[key] = value
+    return data
 
 def analizar_fundamental(ticker):
     try:
-        revenues = extraer_tabla_macrotrends(ticker.lower(), "revenue")
-        net_income = extraer_tabla_macrotrends(ticker.lower(), "net-income")
-        cogs = extraer_tabla_macrotrends(ticker.lower(), "cost-goods-sold")
-
-        razones = []
+        datos = obtener_metricas_finviz(ticker)
         score = 0
+        razones = []
 
-        # Orden descendente: año más reciente primero
-        if len(revenues) >= 2:
-            growth = (revenues[0][1] - revenues[1][1]) / revenues[1][1]
-            if growth > 0.1:
+        rev_growth = datos.get("Sales growth", None)
+        if rev_growth:
+            porcentaje = float(rev_growth.strip("%"))
+            if porcentaje > 10:
                 score += 40
-                razones.append(f"Crecimiento de ingresos año a año: {growth:.2%}")
-            elif growth > 0:
+                razones.append(f"Crecimiento de ventas: {porcentaje:.2f}%")
+            elif porcentaje > 0:
                 score += 20
-                razones.append(f"Crecimiento moderado de ingresos: {growth:.2%}")
+                razones.append(f"Crecimiento moderado de ventas: {porcentaje:.2f}%")
             else:
                 score += 5
-                razones.append(f"Caída de ingresos: {growth:.2%}")
+                razones.append(f"Caída en ventas: {porcentaje:.2f}%")
         else:
-            razones.append("Datos insuficientes para analizar ingresos.")
+            razones.append("No disponible crecimiento de ventas")
 
-        if len(cogs) >= 2 and len(revenues) >= 2:
-            margen_bruto = 1 - (cogs[0][1] / revenues[0][1])
-            razones.append(f"Margen bruto último año: {margen_bruto:.2%}")
-            if margen_bruto > 0.5:
+        margen = datos.get("Gross Margin", None)
+        if margen:
+            m = float(margen.strip("%"))
+            if m > 50:
                 score += 30
-            elif margen_bruto > 0.3:
-                score += 15
+                razones.append(f"Margen bruto elevado: {m:.2f}%")
+            elif m > 30:
+                score += 20
+                razones.append(f"Margen bruto moderado: {m:.2f}%")
             else:
-                score += 5
-
-        if len(net_income) >= 2:
-            crecimiento_net = (net_income[0][1] - net_income[1][1]) / net_income[1][1]
-            razones.append(f"Crecimiento en beneficio neto: {crecimiento_net:.2%}")
-            if crecimiento_net > 0.1:
-                score += 30
-            elif crecimiento_net > 0:
-                score += 15
-            else:
-                score += 0
+                score += 10
+                razones.append(f"Margen bruto bajo: {m:.2f}%")
         else:
-            razones.append("Datos de beneficio neto insuficientes.")
+            razones.append("Margen bruto no disponible")
+
+        eps_growth = datos.get("EPS growth this year", None)
+        if eps_growth:
+            g = float(eps_growth.strip("%"))
+            if g > 10:
+                score += 30
+                razones.append(f"Crecimiento EPS positivo: {g:.2f}%")
+            else:
+                score += 10
+                razones.append(f"Crecimiento EPS moderado: {g:.2f}%")
+        else:
+            razones.append("Crecimiento EPS no disponible")
 
         return score, razones
 
     except Exception as e:
-        return 0, [f"Error en análisis fundamental (macrotrends): {e}"]
+        return 0, [f"Error en análisis fundamental (finviz): {e}"]
