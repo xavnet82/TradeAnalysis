@@ -170,3 +170,4 @@ if ticker:
         st.caption(razones_s)
     else:
         st.error("No se pudo obtener el histórico del ticker.")
+
