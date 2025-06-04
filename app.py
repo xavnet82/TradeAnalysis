@@ -20,32 +20,10 @@ from auto_analysis import ejecutar_analisis_programado
 nltk.download("vader_lexicon")
 
 st.set_page_config(layout="wide")
-st.markdown("""
-    <style>
-        html, body, .stApp {
-            background-color: #ffffff;
-            color: #222222;
-            font-size: 14px;
-        }
-        h1, h2, h3, h4 {
-            font-size: 15px;
-        }
-        .stSlider > div > div {
-            background: #f0f0f0;
-        }
-        .css-1d391kg {
-            font-size: 13px !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 st.title("📊 Análisis Integral de Acciones")
 
-# --- SELECCIÓN DE ACTIVO ---
 st.sidebar.header("🔎 Selección de Activo")
 tipo_activo = st.sidebar.selectbox("Tipo de activo", ["Índice", "Acción"])
-
-ticker = None
 
 if tipo_activo == "Índice":
     indices = get_all_index_tickers()
@@ -54,7 +32,6 @@ elif tipo_activo == "Acción":
     acciones = get_all_stock_tickers()
     ticker = st.sidebar.selectbox("Selecciona una acción", list(acciones.keys()), format_func=lambda x: f"{x} - {acciones[x]}")
 
-# --- FUNCIONES AUXILIARES ---
 def resumen_final(score_t, score_f, score_s):
     media = int((score_t + score_f + score_s) / 3)
     if media >= 75:
@@ -73,7 +50,6 @@ def color_por_score(score):
     else:
         return "#FFB3B3"
 
-# --- EJECUCIÓN PRINCIPAL ---
 if ticker:
     df = descargar_datos(ticker)
     if not df.empty:
@@ -87,11 +63,10 @@ if ticker:
             render_score_card("Análisis Técnico", score_t, razones_t, color_por_score(score_t))
 
             with st.expander("🔍 Ver detalle de indicadores técnicos"):
-                indicadores = ["SMA20", "SMA50", "RSI", "MACD", "Volumen"]
-                for i in range(len(indicadores)):
+                for i in range(len(razones_t)):
                     cols = st.columns([1.5, 1.5, 4, 1.5])
                     with cols[0]:
-                        st.markdown(f"**{indicadores[i]}**")
+                        st.markdown(f"**Indicador {i+1}**")
                     with cols[1]:
                         st.markdown(razones_t[i])
                     with cols[2]:
@@ -123,7 +98,6 @@ if ticker:
             fig = generar_grafico_precio(df, ticker)
             st.pyplot(fig)
 
-            # --- Análisis Automático ---
             st.markdown("---")
             st.subheader("📅 Análisis Automático")
 
@@ -134,14 +108,12 @@ if ticker:
                 else:
                     st.warning(f"No se pudo ejecutar el análisis para {ticker}.")
 
-            # Mostrar y gestionar histórico
             csv_file = f"historico_{ticker.replace('^', '')}.csv"
             if os.path.exists(csv_file):
                 df_hist = pd.read_csv(csv_file)
                 st.subheader(f"📚 Histórico de análisis para {ticker}")
                 st.dataframe(df_hist.tail(10))
 
-                # Botón de descarga CSV
                 with open(csv_file, "r", encoding="utf-8") as f:
                     csv_data = f.read()
                 st.download_button(
@@ -151,7 +123,6 @@ if ticker:
                     mime="text/csv"
                 )
 
-                # Botón de limpieza del histórico
                 if st.button("🗑️ Eliminar histórico del ticker"):
                     try:
                         os.remove(csv_file)
