@@ -170,7 +170,8 @@ if ticker:
                 - Score fundamental: {score_f}, razones: {', '.join(razones_f)}
                 - Sentimiento: {score_s}, razones: {', '.join(razones_s)}
                 - Score global: {final_score}/100, recomendación: {resumen}
-                Enriquece la información con un análisis online en profundidad en base a tu contexto y genera una recomendación adicional (puede ser superior o inferior a la realizada hasta el momento)"""
+                Enriquece esta información aportando un análisis online en profundidad en base a tu contexto para cada bloque y genera una recomendación adicional (puede ser superior o inferior a la realizada hasta el momento).
+                Genera adicionalmente una tabla de probabilidad, indicando en % la posibilidad de subida de la acción, neutra, o bajada a corto, medio y largo plazo"""
 
                 try:
                     client = OpenAI(api_key=st.secrets["openai_api_key"])
