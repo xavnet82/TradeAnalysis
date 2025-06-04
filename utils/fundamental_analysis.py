@@ -1,64 +1,71 @@
-
 import yfinance as yf
 
 def analizar_fundamental(ticker):
-    score = 0
-    justificacion = []
-
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
 
+        per = info.get("trailingPE", None)
+        roe = info.get("returnOnEquity", None)
+        deuda_patrimonio = info.get("debtToEquity", None)
+        margen = info.get("profitMargins", None)
+
+        score = 0
+        razones = []
+
         # PER
-        per = info.get("trailingPE")
-        if per and 5 < per < 25:
-            score += 25
-            justificacion.append("✔️ PER en rango saludable (5–25)")
+        if per is not None:
+            if per < 15:
+                score += 25
+                razones.append(f"PER atractivo: {per:.2f}")
+            elif per < 25:
+                score += 15
+                razones.append(f"PER razonable: {per:.2f}")
+            else:
+                razones.append(f"PER elevado: {per:.2f}")
         else:
-            justificacion.append("❌ PER extremo o no disponible")
+            razones.append("PER no disponible")
 
         # ROE
-        roe = info.get("returnOnEquity")
         if roe is not None:
             if roe > 0.15:
                 score += 25
-                justificacion.append("✔️ ROE alto (>15%)")
+                razones.append(f"ROE elevado: {roe:.2%}")
+            elif roe > 0.05:
+                score += 15
+                razones.append(f"ROE aceptable: {roe:.2%}")
             else:
-                justificacion.append("❌ ROE bajo")
+                razones.append(f"ROE bajo: {roe:.2%}")
         else:
-            justificacion.append("⚠️ ROE no disponible")
+            razones.append("ROE no disponible")
 
-        # Margen de beneficio
-        margin = info.get("profitMargins")
-        if margin is not None:
-            if margin > 0.15:
-                score += 20
-                justificacion.append("✔️ Margen de beneficio >15%")
+        # Deuda/Patrimonio
+        if deuda_patrimonio is not None:
+            if deuda_patrimonio < 100:
+                score += 25
+                razones.append(f"Buena gestión de deuda (D/E): {deuda_patrimonio:.2f}")
+            elif deuda_patrimonio < 200:
+                score += 15
+                razones.append(f"Nivel de deuda razonable (D/E): {deuda_patrimonio:.2f}")
             else:
-                justificacion.append("❌ Margen bajo")
+                razones.append(f"Deuda elevada (D/E): {deuda_patrimonio:.2f}")
         else:
-            justificacion.append("⚠️ Margen no disponible")
+            razones.append("Relación deuda/patrimonio no disponible")
 
-        # Deuda sobre equity
-        de_ratio = info.get("debtToEquity")
-        if de_ratio is not None:
-            if de_ratio < 100:
-                score += 20
-                justificacion.append("✔️ Deuda/Equity < 100%")
+        # Margen
+        if margen is not None:
+            if margen > 0.15:
+                score += 25
+                razones.append(f"Margen alto: {margen:.2%}")
+            elif margen > 0.05:
+                score += 15
+                razones.append(f"Margen aceptable: {margen:.2%}")
             else:
-                justificacion.append("❌ Nivel de deuda elevado")
+                razones.append(f"Margen bajo: {margen:.2%}")
         else:
-            justificacion.append("⚠️ Ratio de deuda no disponible")
+            razones.append("Margen no disponible")
 
-        # Dividendos
-        dividend_yield = info.get("dividendYield")
-        if dividend_yield is not None and dividend_yield > 0:
-            score += 10
-            justificacion.append("✔️ Ofrece dividendos")
-        else:
-            justificacion.append("❌ No ofrece dividendos")
+        return score, razones
 
     except Exception as e:
-        return 50, [f"⚠️ Error en análisis fundamental: {e}"]
-
-    return int(score), justificacion
+        return 0, [f"Error en análisis fundamental: {e}"]
