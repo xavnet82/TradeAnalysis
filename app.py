@@ -2,157 +2,171 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import random
 
-# 50 principales acciones del S&P 500
-TOP50_SP500 = [
-    "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "NVDA", "META", "TSLA", "BRK-B", "UNH",
-    "JNJ", "V", "PG", "MA", "LLY", "JPM", "HD", "PEP", "KO", "DIS",
-    "BAC", "CMCSA", "NFLX", "XOM", "PFE", "WMT", "MCD", "MRK", "ABT", "ADBE",
-    "CRM", "COST", "CSCO", "TXN", "INTC", "MDT", "WFC", "QCOM", "CVX", "AMGN",
-    "DHR", "LIN", "HON", "UPS", "ACN", "ORCL", "ABBV", "IBM", "NEE", "T"
-]
+# -----------------------------
+# CONFIGURACIÓN DE LA APP
+# -----------------------------
+st.set_page_config(layout="centered")
+st.title("📊 Análisis Integral de un Ticker")
+st.markdown("Evalúa una acción desde tres enfoques: **Técnico**, **Fundamental** y **Sentimiento Social**.")
 
-@st.cache_data(show_spinner=False)
-def fetch_and_compute_indicators(ticker: str, period: str):
-    try:
-        data = yf.download(ticker, period=period, progress=False)
-    except Exception:
-        return None
+# -----------------------------
+# INPUT DEL USUARIO
+# -----------------------------
+ticker = st.text_input("Introduce un ticker (ej: AAPL, MSFT, ACN)", "AAPL").upper()
+period = st.selectbox("Periodo histórico", ["6mo", "1y", "2y"], index=1)
 
-    if data is None or data.empty:
-        return None
-
-    data = data.dropna(how="all")
-    if data.empty:
-        return None
-
-    data["SMA_20"] = data["Close"].rolling(window=20).mean()
-    data["SMA_50"] = data["Close"].rolling(window=50).mean()
-
-    delta = data["Close"].diff()
-    gain = delta.where(delta > 0, 0.0)
-    loss = -delta.where(delta < 0, 0.0)
-    avg_gain = gain.rolling(window=14).mean()
-    avg_loss = loss.rolling(window=14).mean()
-    rs = avg_gain / avg_loss
-    data["RSI"] = 100 - (100 / (1 + rs))
-
-    data["EMA_12"] = data["Close"].ewm(span=12, adjust=False).mean()
-    data["EMA_26"] = data["Close"].ewm(span=26, adjust=False).mean()
-    data["MACD"] = data["EMA_12"] - data["EMA_26"]
-
-    data["Volume_Avg_10"] = data["Volume"].rolling(window=10).mean()
-
-    required_cols = ["SMA_20", "SMA_50", "RSI", "MACD", "Volume_Avg_10"]
-    if not set(required_cols).issubset(set(data.columns)):
-        return None
-
-    data = data.dropna(subset=required_cols)
-    if data.empty:
-        return None
-
-    return data
-
-def compute_scores(data: pd.DataFrame, per: float):
-    last = data.iloc[-1]
-    score = 0
+# -----------------------------
+# FUNCIÓN: ANÁLISIS TÉCNICO
+# -----------------------------
+def analizar_tecnico(df):
     razones = []
+    score = 0
 
-    if 5 < per < 25:
-        score += 1
-        razones.append("✔️ PER entre 5 y 25")
+    # RSI
+    delta = df["Close"].diff()
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = -delta.clip(upper=0).rolling(14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    ultimo_rsi = rsi.iloc[-1]
+
+    if 40 <= ultimo_rsi <= 60:
+        score += 25
+        razones.append("RSI en zona neutral.")
+    elif ultimo_rsi < 40:
+        score += 15
+        razones.append("RSI en sobreventa.")
     else:
-        razones.append("❌ PER fuera de [5,25]")
+        score += 10
+        razones.append("RSI en sobrecompra.")
 
-    if last["Close"] > last["SMA_20"]:
-        score += 1
-        razones.append("✔️ Precio > SMA 20")
+    # SMA
+    sma_20 = df["Close"].rolling(20).mean()
+    sma_50 = df["Close"].rolling(50).mean()
+    if df["Close"].iloc[-1] > sma_20.iloc[-1]:
+        score += 20
+        razones.append("Precio por encima de SMA 20.")
     else:
-        razones.append("❌ Precio < SMA 20")
+        razones.append("Precio por debajo de SMA 20.")
 
-    if last["Close"] > last["SMA_50"]:
-        score += 1
-        razones.append("✔️ Precio > SMA 50")
+    if df["Close"].iloc[-1] > sma_50.iloc[-1]:
+        score += 20
+        razones.append("Precio por encima de SMA 50.")
     else:
-        razones.append("❌ Precio < SMA 50")
+        razones.append("Precio por debajo de SMA 50.")
 
-    if 40 <= last["RSI"] <= 60:
-        score += 1
-        razones.append("✔️ RSI entre 40 y 60")
+    # MACD
+    ema12 = df["Close"].ewm(span=12, adjust=False).mean()
+    ema26 = df["Close"].ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    if macd.iloc[-1] > 0:
+        score += 20
+        razones.append("MACD positivo.")
     else:
-        razones.append(f"❌ RSI fuera de rango: {last['RSI']:.1f}")
+        razones.append("MACD negativo.")
 
-    if last["MACD"] > 0:
-        score += 1
-        razones.append("✔️ MACD positivo")
+    # Volumen
+    avg_vol = df["Volume"].rolling(10).mean()
+    if df["Volume"].iloc[-1] > avg_vol.iloc[-1]:
+        score += 15
+        razones.append("Volumen actual mayor al promedio.")
     else:
-        razones.append("❌ MACD negativo")
+        razones.append("Volumen actual menor al promedio.")
 
-    if last["Volume"] > last["Volume_Avg_10"]:
-        score += 1
-        razones.append("✔️ Volumen > promedio")
+    return int(score), " | ".join(razones)
+
+# -----------------------------
+# FUNCIÓN: ANÁLISIS FUNDAMENTAL
+# -----------------------------
+def analizar_fundamental(info):
+    razones = []
+    score = 0
+
+    try:
+        if 5 < info.get("trailingPE", 0) < 25:
+            score += 25
+            razones.append("PER en rango saludable.")
+        else:
+            razones.append("PER fuera de rango.")
+
+        roe = info.get("returnOnEquity", 0)
+        if roe and roe > 0.15:
+            score += 25
+            razones.append("ROE alto.")
+        else:
+            razones.append("ROE bajo o nulo.")
+
+        margin = info.get("profitMargins", 0)
+        if margin and margin > 0.15:
+            score += 20
+            razones.append("Margen de beneficio alto.")
+        else:
+            razones.append("Margen bajo.")
+
+        debt = info.get("debtToEquity", 100)
+        if debt < 100:
+            score += 20
+            razones.append("Endeudamiento bajo.")
+        else:
+            razones.append("Endeudamiento elevado.")
+
+        if info.get("dividendYield", 0):
+            score += 10
+            razones.append("Ofrece dividendos.")
+        else:
+            razones.append("No ofrece dividendos.")
+    except:
+        razones.append("No se pudieron obtener todos los datos.")
+        return 0, "Datos incompletos."
+
+    return int(score), " | ".join(razones)
+
+# -----------------------------
+# FUNCIÓN: ANÁLISIS SOCIAL (SIMULADO)
+# -----------------------------
+def analizar_sentimiento_social(ticker):
+    # Simulación: en una versión real usarías una API de sentimiento o scraping de Twitter/Reddit
+    sentimientos = {
+        "positivo": ["Muy buenas expectativas en redes.", "Opiniones positivas de analistas."],
+        "neutral": ["Opinión estable, sin cambios recientes.", "Sin noticias relevantes en redes."],
+        "negativo": ["Alerta de caída: se discuten problemas.", "Malas noticias o resultados negativos."]
+    }
+
+    sentimiento = random.choice(["positivo", "neutral", "negativo"])
+    frases = sentimientos[sentimiento]
+
+    if sentimiento == "positivo":
+        return 85, " | ".join(frases)
+    elif sentimiento == "neutral":
+        return 55, " | ".join(frases)
     else:
-        razones.append("❌ Volumen < promedio")
+        return 30, " | ".join(frases)
 
-    rec_score = (score / 6) * 60
-    justificacion = [f"Base técnica: {(score / 6) * 60:.1f} pts"]
+# -----------------------------
+# EJECUCIÓN PRINCIPAL
+# -----------------------------
+if ticker:
+    stock = yf.Ticker(ticker)
+    df = stock.history(period=period)
 
-    # Tendencia últimos 5 días
-    ult5 = data["Close"].iloc[-5:]
-    var_pct = ((ult5[-1] - ult5[0]) / ult5[0]) * 100
-    ajuste = min(max(var_pct, -10), 10)
-    rec_score += ajuste
-    justificacion.append(f"Tendencia 5d: {var_pct:.1f}% → ajuste {ajuste:.1f} pts")
+    if not df.empty:
+        info = stock.info
 
-    if pd.notna(per) and (per < 5 or per > 40):
-        rec_score -= 10
-        justificacion.append("Penalización por PER extremo: -10 pts")
+        st.markdown("### 📈 Análisis Técnico")
+        score_t, razones_t = analizar_tecnico(df)
+        st.slider("Resultado Técnico", 0, 100, score_t, disabled=True)
+        st.caption(razones_t)
 
-    rec_score = max(0, min(100, rec_score))
-    justificacion.append(f"Rec_score final: {rec_score:.1f}")
+        st.markdown("### 📊 Análisis Fundamental")
+        score_f, razones_f = analizar_fundamental(info)
+        st.slider("Resultado Fundamental", 0, 100, score_f, disabled=True)
+        st.caption(razones_f)
 
-    return score, round(rec_score, 1), "\n".join(razones), "\n".join(justificacion)
-
-# ---------- UI Streamlit ----------
-st.set_page_config(layout="wide")
-st.title("📈 Analizador Técnico de Acciones (Top 50 S&P 500)")
-st.markdown("Evalúa acciones con indicadores técnicos y un índice de recomendación 0–100.")
-
-period = st.selectbox("Periodo histórico", ["3mo", "6mo", "1y", "2y"], index=2)
-
-if st.button("🔍 Analizar Top 50"):
-    with st.spinner("Procesando tickers..."):
-        resultados = []
-        for tk in TOP50_SP500:
-            data = fetch_and_compute_indicators(tk, period)
-            if data is None or data.empty:
-                continue
-
-            per = yf.Ticker(tk).info.get("trailingPE", np.nan)
-            score, rec_score, razones, justificacion = compute_scores(data, per)
-
-            resultados.append({
-                "Ticker": tk,
-                "PER": round(per, 2) if pd.notna(per) else np.nan,
-                "Score Técnico": score,
-                "Recomendación": rec_score,
-                "Razones": razones,
-                "Justificación": justificacion
-            })
-
-    if not resultados:
-        st.error("No se pudieron procesar tickers válidos.")
+        st.markdown("### 💬 Análisis de Sentimiento (Redes Sociales)")
+        score_s, razones_s = analizar_sentimiento_social(ticker)
+        st.slider("Sentimiento Social", 0, 100, score_s, disabled=True)
+        st.caption(razones_s)
     else:
-        df = pd.DataFrame(resultados).sort_values(by="Recomendación", ascending=False)
-        st.subheader("📊 Tabla resumen")
-        st.dataframe(df[["Ticker", "PER", "Score Técnico", "Recomendación"]], use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("🔎 Detalle y justificación por acción")
-        for _, row in df.iterrows():
-            with st.expander(f"{row['Ticker']}  → {row['Recomendación']} pts"):
-                st.markdown(f"**PER:** {row['PER']}")
-                st.markdown(f"**Score Técnico:** {row['Score Técnico']} / 6")
-                st.text(row["Razones"])
-                st.markdown("---")
-                st.text(row["Justificación"])
+        st.error("No se pudo obtener el histórico del ticker.")
