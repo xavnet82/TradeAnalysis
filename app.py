@@ -1,6 +1,5 @@
 import streamlit as st
 import nltk
-import requests
 
 from config import COLORS
 from utils.data_fetcher import (
@@ -41,7 +40,7 @@ st.markdown("""
 
 st.title("📊 Análisis Integral de Acciones")
 
-# NUEVO: Selector avanzado de ticker
+# --- SELECCIÓN AVANZADA ---
 st.sidebar.header("🔎 Selección de Activo")
 
 tipo_activo = st.sidebar.selectbox("Tipo de activo", ["Índice", "Acción"])
@@ -49,25 +48,18 @@ tipo_activo = st.sidebar.selectbox("Tipo de activo", ["Índice", "Acción"])
 ticker = None
 tickers = []
 
-indice = st.sidebar.selectbox("Índice disponible", ["S&P 500", "Nasdaq 100", "EuroStoxx 50"])
-ver_indice_global = st.sidebar.checkbox("Ver índice como activo consolidado", value=False)
+if tipo_activo == "Índice":
+    indice = st.sidebar.selectbox("Índice disponible", ["S&P 500", "Nasdaq 100", "EuroStoxx 50"])
+    ver_indice_global = st.sidebar.checkbox("Ver índice como activo consolidado", value=False)
 
-if indice == "S&P 500":
-    if ver_indice_global:
-        tickers = ["^GSPC"]
-    else:
-        tickers = get_sp500_tickers()
-elif indice == "Nasdaq 100":
-    if ver_indice_global:
-        tickers = ["^NDX"]
-    else:
-        tickers = get_nasdaq100_tickers()
-elif indice == "EuroStoxx 50":
-    if ver_indice_global:
-        tickers = ["^STOXX50E"]
-    else:
-        tickers = get_eurostoxx50_tickers()
+    if indice == "S&P 500":
+        tickers = ["^GSPC"] if ver_indice_global else get_sp500_tickers()
+    elif indice == "Nasdaq 100":
+        tickers = ["^NDX"] if ver_indice_global else get_nasdaq100_tickers()
+    elif indice == "EuroStoxx 50":
+        tickers = ["^STOXX50E"] if ver_indice_global else get_eurostoxx50_tickers()
 
+    ticker = st.sidebar.selectbox("Selecciona un valor", tickers)
 
 elif tipo_activo == "Acción":
     pais = st.sidebar.selectbox("País", ["EE.UU.", "España"])
@@ -88,6 +80,7 @@ elif tipo_activo == "Acción":
     else:
         st.sidebar.warning("No hay datos disponibles para este mercado.")
 
+# --- FUNCIÓN AUXILIAR ---
 def resumen_final(score_t, score_f, score_s):
     media = int((score_t + score_f + score_s) / 3)
     if media >= 75:
@@ -98,6 +91,7 @@ def resumen_final(score_t, score_f, score_s):
         resumen = "📉 Baja recomendación de inversión."
     return media, resumen
 
+# --- EJECUCIÓN PRINCIPAL ---
 if ticker:
     df = descargar_datos(ticker)
     if not df.empty:
@@ -175,3 +169,4 @@ if ticker:
                 st.info("La generación de análisis por IA está desactivada.")
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
+
