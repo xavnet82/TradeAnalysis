@@ -1,65 +1,57 @@
-
 import yfinance as yf
 
 def analizar_fundamental(ticker):
     score = 0
     justificacion = []
+
     try:
         stock = yf.Ticker(ticker)
-        per = stock.fast_info.get("pe_ratio")
+        info = stock.info
 
+        # PER
+        per = info.get("trailingPE")
         if per and 5 < per < 25:
             score += 25
             justificacion.append("✔️ PER en rango saludable (5–25)")
         else:
             justificacion.append("❌ PER extremo o no disponible")
 
-        income_stmt = stock.income_stmt
-        bs = stock.balance_sheet
-
-        if "Net Income" in income_stmt.index and "Total Stockholder Equity" in bs.index:
-            ni = income_stmt.loc["Net Income"].iloc[0]
-            equity = bs.loc["Total Stockholder Equity"].iloc[0]
-            if equity != 0:
-                roe = ni / equity
-                if roe > 0.15:
-                    score += 25
-                    justificacion.append("✔️ ROE alto (>15%)")
-                else:
-                    justificacion.append("❌ ROE bajo")
+        # ROE
+        roe = info.get("returnOnEquity")
+        if roe is not None:
+            if roe > 0.15:
+                score += 25
+                justificacion.append("✔️ ROE alto (>15%)")
             else:
-                justificacion.append("⚠️ Equity es cero")
+                justificacion.append("❌ ROE bajo")
         else:
-            justificacion.append("⚠️ No hay datos para ROE")
+            justificacion.append("⚠️ ROE no disponible")
 
-        if "Net Income" in income_stmt.index and "Total Revenue" in income_stmt.index:
-            ni = income_stmt.loc["Net Income"].iloc[0]
-            tr = income_stmt.loc["Total Revenue"].iloc[0]
-            if tr != 0:
-                margin = ni / tr
-                if margin > 0.15:
-                    score += 20
-                    justificacion.append("✔️ Margen >15%")
-                else:
-                    justificacion.append("❌ Margen bajo")
+        # Margen de beneficio
+        margin = info.get("profitMargins")
+        if margin is not None:
+            if margin > 0.15:
+                score += 20
+                justificacion.append("✔️ Margen de beneficio >15%")
+            else:
+                justificacion.append("❌ Margen bajo")
         else:
-            justificacion.append("⚠️ No hay datos de ingresos totales")
+            justificacion.append("⚠️ Margen no disponible")
 
-        if "Total Debt" in bs.index and "Total Stockholder Equity" in bs.index:
-            debt = bs.loc["Total Debt"].iloc[0]
-            equity = bs.loc["Total Stockholder Equity"].iloc[0]
-            if equity != 0:
-                ratio = debt / equity
-                if ratio < 1:
-                    score += 20
-                    justificacion.append("✔️ Deuda/patrimonio <1")
-                else:
-                    justificacion.append("❌ Deuda elevada")
+        # Deuda sobre equity
+        de_ratio = info.get("debtToEquity")
+        if de_ratio is not None:
+            if de_ratio < 100:
+                score += 20
+                justificacion.append("✔️ Deuda/Equity < 100%")
+            else:
+                justificacion.append("❌ Nivel de deuda elevado")
         else:
-            justificacion.append("⚠️ No hay datos de deuda/equity")
+            justificacion.append("⚠️ Ratio de deuda no disponible")
 
-        dividend_yield = stock.fast_info.get("dividend_yield")
-        if dividend_yield and dividend_yield > 0:
+        # Dividendos
+        dividend_yield = info.get("dividendYield")
+        if dividend_yield is not None and dividend_yield > 0:
             score += 10
             justificacion.append("✔️ Ofrece dividendos")
         else:
