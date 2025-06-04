@@ -3,6 +3,7 @@ import nltk
 import os
 import pandas as pd
 
+
 from config import COLORS
 from utils.data_fetcher import (
     descargar_datos,
@@ -15,6 +16,7 @@ from utils.sentiment_analysis import analizar_sentimiento_noticias
 from utils.charts import generar_grafico_precio
 from components.cards import render_score_card
 from auto_analysis import ejecutar_analisis_programado
+from io import StringIO
 
 nltk.download("vader_lexicon")
 
@@ -138,6 +140,25 @@ if ticker:
                 df_hist = pd.read_csv(csv_file)
                 st.subheader(f"📚 Histórico de análisis para {ticker}")
                 st.dataframe(df_hist.tail(10))
+
+                    # --- Descargar CSV ---
+            if os.path.exists(csv_file):
+                with open(csv_file, "r", encoding="utf-8") as f:
+                    csv_data = f.read()
+                st.download_button(
+                    label="⬇️ Descargar histórico CSV",
+                    data=csv_data,
+                    file_name=csv_file,
+                    mime="text/csv"
+                )
+            
+            # --- Eliminar histórico ---
+            if st.button("🗑️ Eliminar histórico del ticker"):
+                try:
+                    os.remove(csv_file)
+                    st.success(f"Histórico eliminado: {csv_file}")
+                except Exception as e:
+                    st.error(f"No se pudo eliminar: {e}")
 
         with col2:
             st.subheader("🧠 Análisis Generado por IA")
