@@ -80,7 +80,7 @@ elif tipo_activo == "Acción":
     else:
         st.sidebar.warning("No hay datos disponibles para este mercado.")
 
-# --- FUNCIÓN AUXILIAR ---
+# --- FUNCIONES AUXILIARES ---
 def resumen_final(score_t, score_f, score_s):
     media = int((score_t + score_f + score_s) / 3)
     if media >= 75:
@@ -91,15 +91,26 @@ def resumen_final(score_t, score_f, score_s):
         resumen = "📉 Baja recomendación de inversión."
     return media, resumen
 
+def color_por_score(score):
+    if score >= 75:
+        return "#9BE7A0"  # verde
+    elif score >= 50:
+        return "#FFEB99"  # amarillo
+    else:
+        return "#FFB3B3"  # rojo
+
 # --- EJECUCIÓN PRINCIPAL ---
 if ticker:
     df = descargar_datos(ticker)
     if not df.empty:
+        es_indice = ticker.startswith("^")
+
         col1, col2 = st.columns([2, 1])
         with col1:
             st.subheader("📈 Resultados")
+
             score_t, razones_t, df, detalles_t, tendencias_t = analizar_tecnico(df)
-            render_score_card("Análisis Técnico", score_t, razones_t, COLORS["technical"])
+            render_score_card("Análisis Técnico", score_t, razones_t, color_por_score(score_t))
 
             with st.expander("🔍 Ver detalle de indicadores técnicos"):
                 indicadores = ["SMA20", "SMA50", "RSI", "MACD", "Volumen"]
@@ -114,15 +125,18 @@ if ticker:
                     with cols[3]:
                         st.markdown(tendencias_t[i])
 
-            score_f, razones_f = analizar_fundamental(ticker)
-            render_score_card("Análisis Fundamental", score_f, razones_f, COLORS["fundamental"])
-
-            with st.expander("🔍 Ver detalle de indicadores fundamentales"):
-                for razon in razones_f:
-                    st.markdown(f"- {razon}")
+            if not es_indice:
+                score_f, razones_f = analizar_fundamental(ticker)
+                render_score_card("Análisis Fundamental", score_f, razones_f, color_por_score(score_f))
+                with st.expander("🔍 Ver detalle de indicadores fundamentales"):
+                    for razon in razones_f:
+                        st.markdown(f"- {razon}")
+            else:
+                score_f = 50
+                razones_f = ["No se realiza análisis fundamental para índices."]
 
             score_s, razones_s = analizar_sentimiento_noticias(ticker)
-            render_score_card("Sentimiento en Noticias", score_s, razones_s, COLORS["sentiment"])
+            render_score_card("Sentimiento en Noticias", score_s, razones_s, color_por_score(score_s))
 
             st.markdown("---")
             st.subheader("✅ Recomendación Consolidada")
@@ -141,7 +155,7 @@ if ticker:
             if usar_ia:
                 from openai import OpenAI
 
-                prompt = f"""Analiza los siguientes indicadores para la acción {ticker}:
+                prompt = f"""Analiza los siguientes indicadores para el activo {ticker}:
                 - Score técnico: {score_t}, razones: {', '.join(razones_t)}
                 - Score fundamental: {score_f}, razones: {', '.join(razones_f)}
                 - Sentimiento: {score_s}, razones: {', '.join(razones_s)}
@@ -169,4 +183,3 @@ if ticker:
                 st.info("La generación de análisis por IA está desactivada.")
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
-
