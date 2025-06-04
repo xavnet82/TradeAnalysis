@@ -8,3 +8,5 @@ nltk
 requests
 openai
 feedparser
+beautifulsoup4
+requests
