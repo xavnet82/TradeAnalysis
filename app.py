@@ -9,9 +9,6 @@ import re
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-pip install streamlit yfinance pandas numpy matplotlib snscrape nltk transformers
-
-
 # Configuración inicial
 st.set_page_config(layout="wide")
 st.title("📊 Análisis Integral de un Ticker")
