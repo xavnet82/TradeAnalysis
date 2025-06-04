@@ -4,8 +4,4 @@ pandas
 numpy
 matplotlib
 nltk
-snscrape
-transformers
-torch
 requests
-nltk
