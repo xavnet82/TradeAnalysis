@@ -2,7 +2,6 @@ import streamlit as st
 import nltk
 import os
 import pandas as pd
-from auto_analysis import ejecutar_analisis_programado
 
 from config import COLORS
 from utils.data_fetcher import (
@@ -15,6 +14,7 @@ from utils.fundamental_analysis import analizar_fundamental
 from utils.sentiment_analysis import analizar_sentimiento_noticias
 from utils.charts import generar_grafico_precio
 from components.cards import render_score_card
+from auto_analysis import ejecutar_analisis_programado
 
 nltk.download("vader_lexicon")
 
@@ -66,11 +66,11 @@ def resumen_final(score_t, score_f, score_s):
 
 def color_por_score(score):
     if score >= 75:
-        return "#9BE7A0"  # verde
+        return "#9BE7A0"
     elif score >= 50:
-        return "#FFEB99"  # amarillo
+        return "#FFEB99"
     else:
-        return "#FFB3B3"  # rojo
+        return "#FFB3B3"
 
 # --- EJECUCIÓN PRINCIPAL ---
 if ticker:
@@ -122,6 +122,23 @@ if ticker:
             fig = generar_grafico_precio(df, ticker)
             st.pyplot(fig)
 
+            st.markdown("---")
+            st.subheader("📅 Análisis Automático")
+
+            if st.button("Ejecutar análisis y guardar histórico"):
+                resultado = ejecutar_analisis_programado(ticker)
+                if resultado:
+                    st.success(f"Análisis ejecutado para {ticker} y guardado.")
+                else:
+                    st.warning(f"No se pudo ejecutar el análisis para {ticker}.")
+
+            # Mostrar histórico si existe
+            csv_file = f"historico_{ticker.replace('^', '')}.csv"
+            if os.path.exists(csv_file):
+                df_hist = pd.read_csv(csv_file)
+                st.subheader(f"📚 Histórico de análisis para {ticker}")
+                st.dataframe(df_hist.tail(10))
+
         with col2:
             st.subheader("🧠 Análisis Generado por IA")
             usar_ia = st.toggle("¿Generar análisis con IA?", value=True)
@@ -154,23 +171,5 @@ if ticker:
                     st.error(f"Error al llamar a OpenAI: {e}")
             else:
                 st.info("La generación de análisis por IA está desactivada.")
-    st.markdown("---")
-
-    st.subheader("📅 Análisis Automático")
-    
-    if st.button("Ejecutar análisis y guardar histórico"):
-        resultado = ejecutar_analisis_programado(ticker)
-        if resultado:
-            st.success(f"Análisis ejecutado para {ticker} y guardado.")
-        else:
-            st.warning(f"No se pudo ejecutar el análisis para {ticker}.")
-    
-    # Mostrar histórico si existe
-    csv_file = f"historico_{ticker.replace('^', '')}.csv"
-    if os.path.exists(csv_file):
-        df_hist = pd.read_csv(csv_file)
-        st.subheader(f"📚 Histórico de análisis para {ticker}")
-        st.dataframe(df_hist.tail(10))
-    
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
