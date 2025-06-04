@@ -2,5 +2,8 @@ streamlit
 yfinance
 pandas
 numpy
-plotly
-
+matplotlib
+nltk
+snscrape
+transformers
+torch
