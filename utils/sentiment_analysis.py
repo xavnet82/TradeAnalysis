@@ -1,36 +1,30 @@
-
-import requests
+import feedparser
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 def analizar_sentimiento_noticias(ticker):
-    url = f"https://gnews.io/api/v4/search?q={ticker}&lang=en&token=YOUR_GNEWS_API_KEY"
     try:
-        resp = requests.get(url, timeout=10)
-        noticias = resp.json().get("articles", [])
-        if not noticias:
-            return 50, ["❌ No se encontraron noticias."]
+        sid = SentimentIntensityAnalyzer()
 
-        sia = SentimentIntensityAnalyzer()
-        pos, neg, neu = 0, 0, 0
-        for n in noticias:
-            score = sia.polarity_scores(n['title'])["compound"]
-            if score > 0.05:
-                pos += 1
-            elif score < -0.05:
-                neg += 1
-            else:
-                neu += 1
+        feed_url = f"https://news.google.com/rss/search?q={ticker}+stock&hl=en-US&gl=US&ceid=US:en"
+        feed = feedparser.parse(feed_url)
 
-        total = pos + neg + neu
-        if total == 0:
-            return 50, ["❌ No se puede evaluar sentimiento."]
-        pct_pos = pos / total * 100
-        if pct_pos > 60:
-            return 85, ["✔️ Sentimiento positivo predominante"]
-        elif pct_pos < 40:
-            return 30, ["❌ Sentimiento negativo dominante"]
-        else:
-            return 55, ["⚖️ Sentimiento mixto"]
+        if not feed.entries:
+            return 50, ["No se encontraron noticias recientes."]
+
+        scores = []
+        razones = []
+
+        for entry in feed.entries[:5]:  # solo las 5 primeras
+            titulo = entry.title
+            score = sid.polarity_scores(titulo)["compound"]
+            scaled = int((score + 1) * 50)  # convierte [-1,1] a [0,100]
+            scores.append(score)
+            razones.append(f"{titulo} (score: {scaled}/100)")
+
+        media = sum(scores) / len(scores)
+        final_score = int((media + 1) * 50)
+
+        return final_score, razones
 
     except Exception as e:
-        return 50, [f"❌ Error en análisis de noticias: {e}"]
+        return 0, [f"Error al analizar sentimiento: {e}"]
