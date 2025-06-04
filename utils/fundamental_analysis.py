@@ -1,14 +1,32 @@
-import yfinance as yf
+import requests
+
+def get_yf_info(ticker):
+    """
+    Llama al endpoint interno de Yahoo Finance para obtener datos clave.
+    """
+    url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=defaultKeyStatistics,financialData"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    r = requests.get(url, headers=headers)
+    r.raise_for_status()
+    return r.json()
 
 def analizar_fundamental(ticker):
+    """
+    Realiza un análisis fundamental sencillo basado en indicadores clave:
+    PER, ROE, Deuda/Patrimonio y Margen de beneficios.
+    Devuelve un score sobre 100 y una lista de razones justificativas.
+    """
     try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
+        data = get_yf_info(ticker)
 
-        per = info.get("trailingPE", None)
-        roe = info.get("returnOnEquity", None)
-        deuda_patrimonio = info.get("debtToEquity", None)
-        margen = info.get("profitMargins", None)
+        stats = data["quoteSummary"]["result"][0]
+
+        per = stats["defaultKeyStatistics"].get("trailingPE", {}).get("raw")
+        roe = stats["financialData"].get("returnOnEquity", {}).get("raw")
+        deuda_patrimonio = stats["financialData"].get("debtToEquity", {}).get("raw")
+        margen = stats["financialData"].get("profitMargins", {}).get("raw")
 
         score = 0
         razones = []
@@ -52,7 +70,7 @@ def analizar_fundamental(ticker):
         else:
             razones.append("Relación deuda/patrimonio no disponible")
 
-        # Margen
+        # Margen de beneficios
         if margen is not None:
             if margen > 0.15:
                 score += 25
@@ -63,7 +81,7 @@ def analizar_fundamental(ticker):
             else:
                 razones.append(f"Margen bajo: {margen:.2%}")
         else:
-            razones.append("Margen no disponible")
+            razones.append("Margen de beneficios no disponible")
 
         return score, razones
 
