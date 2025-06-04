@@ -2,172 +2,188 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import random
+import matplotlib.pyplot as plt
+import snscrape.modules.twitter as sntwitter
+import datetime
+import re
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-# -----------------------------
-# CONFIGURACIÓN DE LA APP
-# -----------------------------
-st.set_page_config(layout="centered")
+# Configuración inicial
+st.set_page_config(layout="wide")
 st.title("📊 Análisis Integral de un Ticker")
-st.markdown("Evalúa una acción desde tres enfoques: **Técnico**, **Fundamental** y **Sentimiento Social**.")
+st.markdown("Evaluación desde tres perspectivas: Técnica, Fundamental y Sentimiento en Redes Sociales.")
 
-# -----------------------------
-# INPUT DEL USUARIO
-# -----------------------------
-ticker = st.text_input("Introduce un ticker (ej: AAPL, MSFT, ACN)", "AAPL").upper()
-period = st.selectbox("Periodo histórico", ["6mo", "1y", "2y"], index=1)
+# Entrada del usuario
+ticker = st.text_input("Introduce el símbolo del ticker (ejemplo: AAPL)", "AAPL").upper()
 
-# -----------------------------
-# FUNCIÓN: ANÁLISIS TÉCNICO
-# -----------------------------
-def analizar_tecnico(df):
-    razones = []
-    score = 0
+# Descargar datos históricos
+@st.cache_data
+def descargar_datos(ticker):
+    fin = datetime.date.today()
+    inicio = fin - datetime.timedelta(days=365)
+    datos = yf.download(ticker, start=inicio, end=fin)
+    return datos
 
-    # RSI
-    delta = df["Close"].diff()
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = -delta.clip(upper=0).rolling(14).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    ultimo_rsi = rsi.iloc[-1]
-
-    if 40 <= ultimo_rsi <= 60:
-        score += 25
-        razones.append("RSI en zona neutral.")
-    elif ultimo_rsi < 40:
-        score += 15
-        razones.append("RSI en sobreventa.")
-    else:
-        score += 10
-        razones.append("RSI en sobrecompra.")
+# Análisis Técnico
+def analisis_tecnico(datos):
+    puntuacion = 0
+    justificacion = []
 
     # SMA
-    sma_20 = df["Close"].rolling(20).mean()
-    sma_50 = df["Close"].rolling(50).mean()
-    if df["Close"].iloc[-1] > sma_20.iloc[-1]:
-        score += 20
-        razones.append("Precio por encima de SMA 20.")
+    datos['SMA20'] = datos['Close'].rolling(window=20).mean()
+    datos['SMA50'] = datos['Close'].rolling(window=50).mean()
+    if datos['Close'].iloc[-1] > datos['SMA20'].iloc[-1]:
+        puntuacion += 20
+        justificacion.append("Precio por encima de SMA20.")
     else:
-        razones.append("Precio por debajo de SMA 20.")
+        justificacion.append("Precio por debajo de SMA20.")
+    if datos['Close'].iloc[-1] > datos['SMA50'].iloc[-1]:
+        puntuacion += 20
+        justificacion.append("Precio por encima de SMA50.")
+    else:
+        justificacion.append("Precio por debajo de SMA50.")
 
-    if df["Close"].iloc[-1] > sma_50.iloc[-1]:
-        score += 20
-        razones.append("Precio por encima de SMA 50.")
+    # RSI
+    delta = datos['Close'].diff()
+    ganancia = delta.where(delta > 0, 0)
+    perdida = -delta.where(delta < 0, 0)
+    media_ganancia = ganancia.rolling(window=14).mean()
+    media_perdida = perdida.rolling(window=14).mean()
+    rs = media_ganancia / media_perdida
+    rsi = 100 - (100 / (1 + rs))
+    datos['RSI'] = rsi
+    if rsi.iloc[-1] < 30:
+        puntuacion += 20
+        justificacion.append("RSI indica sobreventa.")
+    elif rsi.iloc[-1] > 70:
+        puntuacion += 10
+        justificacion.append("RSI indica sobrecompra.")
     else:
-        razones.append("Precio por debajo de SMA 50.")
+        puntuacion += 15
+        justificacion.append("RSI en zona neutral.")
 
     # MACD
-    ema12 = df["Close"].ewm(span=12, adjust=False).mean()
-    ema26 = df["Close"].ewm(span=26, adjust=False).mean()
+    ema12 = datos['Close'].ewm(span=12, adjust=False).mean()
+    ema26 = datos['Close'].ewm(span=26, adjust=False).mean()
     macd = ema12 - ema26
+    datos['MACD'] = macd
     if macd.iloc[-1] > 0:
-        score += 20
-        razones.append("MACD positivo.")
+        puntuacion += 20
+        justificacion.append("MACD positivo.")
     else:
-        razones.append("MACD negativo.")
+        justificacion.append("MACD negativo.")
 
     # Volumen
-    avg_vol = df["Volume"].rolling(10).mean()
-    if df["Volume"].iloc[-1] > avg_vol.iloc[-1]:
-        score += 15
-        razones.append("Volumen actual mayor al promedio.")
+    volumen_promedio = datos['Volume'].rolling(window=10).mean()
+    if datos['Volume'].iloc[-1] > volumen_promedio.iloc[-1]:
+        puntuacion += 20
+        justificacion.append("Volumen actual por encima del promedio.")
     else:
-        razones.append("Volumen actual menor al promedio.")
+        justificacion.append("Volumen actual por debajo del promedio.")
 
-    return int(score), " | ".join(razones)
+    return puntuacion, justificacion, datos
 
-# -----------------------------
-# FUNCIÓN: ANÁLISIS FUNDAMENTAL
-# -----------------------------
-def analizar_fundamental(info):
-    razones = []
-    score = 0
+# Análisis Fundamental
+def analisis_fundamental(ticker):
+    info = yf.Ticker(ticker).info
+    puntuacion = 0
+    justificacion = []
 
-    try:
-        if 5 < info.get("trailingPE", 0) < 25:
-            score += 25
-            razones.append("PER en rango saludable.")
+    # PER
+    per = info.get('trailingPE', None)
+    if per:
+        if 5 < per < 25:
+            puntuacion += 25
+            justificacion.append("PER en rango saludable.")
         else:
-            razones.append("PER fuera de rango.")
+            justificacion.append("PER fuera de rango.")
 
-        roe = info.get("returnOnEquity", 0)
-        if roe and roe > 0.15:
-            score += 25
-            razones.append("ROE alto.")
+    # ROE
+    roe = info.get('returnOnEquity', None)
+    if roe:
+        if roe > 0.15:
+            puntuacion += 25
+            justificacion.append("ROE alto.")
         else:
-            razones.append("ROE bajo o nulo.")
+            justificacion.append("ROE bajo.")
 
-        margin = info.get("profitMargins", 0)
-        if margin and margin > 0.15:
-            score += 20
-            razones.append("Margen de beneficio alto.")
+    # Margen de beneficio
+    margen = info.get('profitMargins', None)
+    if margen:
+        if margen > 0.15:
+            puntuacion += 20
+            justificacion.append("Margen de beneficio alto.")
         else:
-            razones.append("Margen bajo.")
+            justificacion.append("Margen de beneficio bajo.")
 
-        debt = info.get("debtToEquity", 100)
-        if debt < 100:
-            score += 20
-            razones.append("Endeudamiento bajo.")
+    # Deuda/Patrimonio
+    deuda = info.get('debtToEquity', None)
+    if deuda:
+        if deuda < 100:
+            puntuacion += 20
+            justificacion.append("Deuda/Patrimonio en buen rango.")
         else:
-            razones.append("Endeudamiento elevado.")
+            justificacion.append("Deuda/Patrimonio elevado.")
 
-        if info.get("dividendYield", 0):
-            score += 10
-            razones.append("Ofrece dividendos.")
-        else:
-            razones.append("No ofrece dividendos.")
-    except:
-        razones.append("No se pudieron obtener todos los datos.")
-        return 0, "Datos incompletos."
-
-    return int(score), " | ".join(razones)
-
-# -----------------------------
-# FUNCIÓN: ANÁLISIS SOCIAL (SIMULADO)
-# -----------------------------
-def analizar_sentimiento_social(ticker):
-    # Simulación: en una versión real usarías una API de sentimiento o scraping de Twitter/Reddit
-    sentimientos = {
-        "positivo": ["Muy buenas expectativas en redes.", "Opiniones positivas de analistas."],
-        "neutral": ["Opinión estable, sin cambios recientes.", "Sin noticias relevantes en redes."],
-        "negativo": ["Alerta de caída: se discuten problemas.", "Malas noticias o resultados negativos."]
-    }
-
-    sentimiento = random.choice(["positivo", "neutral", "negativo"])
-    frases = sentimientos[sentimiento]
-
-    if sentimiento == "positivo":
-        return 85, " | ".join(frases)
-    elif sentimiento == "neutral":
-        return 55, " | ".join(frases)
+    # Dividendos
+    dividendo = info.get('dividendYield', None)
+    if dividendo:
+        puntuacion += 10
+        justificacion.append("Ofrece dividendos.")
     else:
-        return 30, " | ".join(frases)
+        justificacion.append("No ofrece dividendos.")
 
-# -----------------------------
-# EJECUCIÓN PRINCIPAL
-# -----------------------------
+    return puntuacion, justificacion
+
+# Análisis de Sentimiento
+def analisis_sentimiento(ticker):
+    nltk.download('vader_lexicon')
+    sia = SentimentIntensityAnalyzer()
+    tweets = []
+    for i, tweet in enumerate(sntwitter.TwitterSearchScraper(f'${ticker} lang:en').get_items()):
+        if i > 100:
+            break
+        tweets.append(tweet.content)
+    positivos = 0
+    negativos = 0
+    neutrales = 0
+    for tweet in tweets:
+        puntaje = sia.polarity_scores(tweet)
+        if puntaje['compound'] > 0.05:
+            positivos += 1
+        elif puntaje['compound'] < -0.05:
+            negativos += 1
+        else:
+            neutrales += 1
+    total = positivos + negativos + neutrales
+    if total == 0:
+        return 50, ["No se encontraron tweets."]
+    porcentaje_positivo = (positivos / total) * 100
+    if porcentaje_positivo > 60:
+        puntuacion = 90
+        justificacion = ["Sentimiento positivo predominante en redes sociales."]
+    elif porcentaje_positivo < 40:
+        puntuacion = 30
+        justificacion = ["Sentimiento negativo predominante en redes sociales."]
+    else:
+        puntuacion = 60
+        justificacion = ["Sentimiento mixto en redes sociales."]
+    return puntuacion, justificacion
+
+# Ejecución principal
 if ticker:
-    stock = yf.Ticker(ticker)
-    df = stock.history(period=period)
-
-    if not df.empty:
-        info = stock.info
-
-        st.markdown("### 📈 Análisis Técnico")
-        score_t, razones_t = analizar_tecnico(df)
-        st.slider("Resultado Técnico", 0, 100, score_t, disabled=True)
-        st.caption(razones_t)
-
-        st.markdown("### 📊 Análisis Fundamental")
-        score_f, razones_f = analizar_fundamental(info)
-        st.slider("Resultado Fundamental", 0, 100, score_f, disabled=True)
-        st.caption(razones_f)
-
-        st.markdown("### 💬 Análisis de Sentimiento (Redes Sociales)")
-        score_s, razones_s = analizar_sentimiento_social(ticker)
-        st.slider("Sentimiento Social", 0, 100, score_s, disabled=True)
-        st.caption(razones_s)
+    datos = descargar_datos(ticker)
+    if datos.empty:
+        st.error("No se pudieron obtener datos para el ticker proporcionado.")
     else:
-        st.error("No se pudo obtener el histórico del ticker.")
+        st.subheader("📈 Análisis Técnico")
+        puntuacion_tecnica, justificacion_tecnica, datos = analisis_tecnico(datos)
+        st.slider("Puntuación Técnica", 0, 100, puntuacion_tecnica, disabled=True)
+        for j in justificacion_tecnica:
+            st.write(f"- {j}")
 
+        st.subheader("💼 Análisis Fundamental")
+
+::contentReference[oaicite:75]{index=75}
+ 
