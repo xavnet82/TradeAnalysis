@@ -76,26 +76,40 @@ if ticker:
 
         with col2:
             st.subheader("🧠 Análisis Generado por IA")
-            prompt = f"""Resume y analiza los siguientes indicadores para la acción {ticker}:
-            - Score técnico: {score_t}, razones: {', '.join(razones_t)}
-            - Score fundamental: {score_f}, razones: {', '.join(razones_f)}
-            - Sentimiento: {score_s}, razones: {', '.join(razones_s)}
-            - Score global: {final_score}/100, recomendación: {resumen}"""
+            usar_ia = st.toggle("¿Generar análisis con IA?", value=True)
+            if usar_ia:
+                import time
+                import openai
 
-            headers = {
-                "Authorization": f"Bearer {st.secrets['openai_api_key']}",
-                "Content-Type": "application/json"
-            }
-            data = {
-                "model": "gpt-4o",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7
-            }
-            try:
-                response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data, timeout=15)
-                result = response.json()["choices"][0]["message"]["content"]
-                st.write(result)
-            except Exception as e:
-                st.error(f"Error al llamar a OpenAI: {e}")
+                prompt = f"""Resume y analiza los siguientes indicadores para la acción {ticker}:
+                - Score técnico: {score_t}, razones: {', '.join(razones_t)}
+                - Score fundamental: {score_f}, razones: {', '.join(razones_f)}
+                - Sentimiento: {score_s}, razones: {', '.join(razones_s)}
+                - Score global: {final_score}/100, recomendación: {resumen}"""
+
+                openai.api_key = st.secrets["openai_api_key"]
+
+                try:
+                    response = openai.ChatCompletion.create(
+                        model="gpt-4o",
+                        messages=[{"role": "user", "content": prompt}],
+                        stream=True,
+                        temperature=0.7,
+                    )
+
+                    full_response = ""
+                    placeholder = st.empty()
+                    for chunk in response:
+                        if "choices" in chunk and len(chunk["choices"]) > 0:
+                            delta = chunk["choices"][0]["delta"]
+                            content = delta.get("content", "")
+                            full_response += content
+                            placeholder.markdown(full_response)
+
+                except Exception as e:
+                    st.error(f"Error al llamar a OpenAI: {e}")
+            else:
+                st.info("La generación de análisis por IA está desactivada.")
+
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
