@@ -123,7 +123,7 @@ if ticker:
 
             st.markdown("---")
             st.subheader("📉 Gráfico del último año (con indicadores técnicos)")
-            fig = generar_grafico_precio(df, ticker, height=300, indicadores_extra=True)
+            fig = generar_grafico_precio(df, ticker)
             st.pyplot(fig)
 
             st.markdown("---")
