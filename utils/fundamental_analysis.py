@@ -3,10 +3,9 @@ from bs4 import BeautifulSoup
 
 def obtener_per_yahoo(ticker):
     """
-    Extrae el PER (Trailing P/E) desde la página pública de Yahoo Finance
-    para un ticker dado.
+    Extrae el PER desde la página principal de Yahoo Finance (quote summary).
     """
-    url = f"https://finance.yahoo.com/quote/{ticker}/key-statistics"
+    url = f"https://finance.yahoo.com/quote/{ticker}"
     headers = {"User-Agent": "Mozilla/5.0"}
     r = requests.get(url, headers=headers)
     r.raise_for_status()
@@ -14,10 +13,10 @@ def obtener_per_yahoo(ticker):
 
     per = None
     for row in soup.find_all("tr"):
-        cells = row.find_all("td")
-        if len(cells) >= 2 and "Trailing P/E" in cells[0].text:
+        cols = row.find_all("td")
+        if len(cols) == 2 and "PE Ratio (TTM)" in cols[0].text:
             try:
-                per = float(cells[1].text.replace(",", ""))
+                per = float(cols[1].text.replace(",", ""))
             except ValueError:
                 per = None
             break
@@ -26,8 +25,8 @@ def obtener_per_yahoo(ticker):
 
 def analizar_fundamental(ticker):
     """
-    Realiza un análisis fundamental sencillo basado solo en PER obtenido
-    por scraping desde Yahoo Finance. Devuelve un score sobre 100 y razones.
+    Realiza un análisis fundamental simple basado en PER.
+    Devuelve un score y explicaciones sin depender de APIs.
     """
     try:
         per = obtener_per_yahoo(ticker)
