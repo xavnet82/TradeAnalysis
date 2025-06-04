@@ -7,11 +7,6 @@ from utils.technical_analysis import analizar_tecnico
 from utils.fundamental_analysis import analizar_fundamental
 from utils.sentiment_analysis import analizar_sentimiento_noticias
 
-# === Configuración ===
-TICKER = "AAPL"  # Cambia aquí el ticker deseado (índice o acción)
-OUTPUT_FILE = "historico_analisis.csv"
-FECHA = datetime.date.today().strftime("%Y-%m-%d")
-
 def clasificar_recomendacion(score):
     if score >= 75:
         return "Alta"
@@ -20,11 +15,12 @@ def clasificar_recomendacion(score):
     else:
         return "Baja"
 
-def ejecutar_analisis():
-    df = descargar_datos(TICKER)
+def ejecutar_analisis_programado(ticker="AAPL"):
+    fecha_actual = datetime.date.today().strftime("%Y-%m-%d")
+    df = descargar_datos(ticker)
     if df.empty:
-        print(f"{FECHA} - No se pudieron obtener datos para {TICKER}")
-        return
+        print(f"{fecha_actual} - No se pudieron obtener datos para {ticker}")
+        return None
 
     cierre = df["Close"].iloc[-1]
 
@@ -32,21 +28,21 @@ def ejecutar_analisis():
     score_t, _, df, _, _ = analizar_tecnico(df)
 
     # Análisis fundamental (omitido si es índice)
-    if TICKER.startswith("^"):
+    if ticker.startswith("^"):
         score_f = 50
     else:
-        score_f, _ = analizar_fundamental(TICKER)
+        score_f, _ = analizar_fundamental(ticker)
 
     # Análisis de sentimiento
-    score_s, _ = analizar_sentimiento_noticias(TICKER)
+    score_s, _ = analizar_sentimiento_noticias(ticker)
 
     # Score global
     score_final = int((score_t + score_f + score_s) / 3)
     recomendacion = clasificar_recomendacion(score_final)
 
     registro = {
-        "fecha_analisis": FECHA,
-        "ticker": TICKER,
+        "fecha_analisis": fecha_actual,
+        "ticker": ticker,
         "cierre": round(cierre, 2),
         "score_tecnico": score_t,
         "score_fundamental": score_f,
@@ -55,14 +51,13 @@ def ejecutar_analisis():
         "recomendacion": recomendacion
     }
 
-    if os.path.exists(OUTPUT_FILE):
-        df_historico = pd.read_csv(OUTPUT_FILE)
+    output_file = f"historico_{ticker.replace('^', '')}.csv"
+    if os.path.exists(output_file):
+        df_historico = pd.read_csv(output_file)
         df_historico = pd.concat([df_historico, pd.DataFrame([registro])], ignore_index=True)
     else:
         df_historico = pd.DataFrame([registro])
 
-    df_historico.to_csv(OUTPUT_FILE, index=False)
-    print(f"✅ Análisis guardado: {TICKER} ({FECHA})")
-
-if __name__ == "__main__":
-    ejecutar_analisis()
+    df_historico.to_csv(output_file, index=False)
+    print(f"✅ Análisis guardado en {output_file}")
+    return registro
