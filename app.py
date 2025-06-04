@@ -14,7 +14,6 @@ st.set_page_config(layout="wide")
 st.title("📊 Análisis Integral de Acciones")
 ticker = st.text_input("Introduce un ticker (ej: AAPL, MSFT, ACN)", "AAPL").upper()
 
-# Descargar datos históricos
 @st.cache_data
 def descargar_datos(ticker):
     df = yf.download(ticker, period="1y")
@@ -53,7 +52,7 @@ def analizar_tecnico(df):
 
     if 40 <= last['RSI'] <= 60:
         score += 20
-        justificacion.append("✔️ RSI neutro")
+        justificacion.append("✔️ RSI en zona neutra")
     elif last['RSI'] < 40:
         score += 10
         justificacion.append("✔️ RSI en sobreventa")
@@ -75,46 +74,75 @@ def analizar_tecnico(df):
 
     return score, justificacion, df
 
-# Análisis fundamental
-def analizar_fundamental(info):
+# Análisis fundamental (sin .info)
+def analizar_fundamental(ticker):
     score = 0
     justificacion = []
+    try:
+        stock = yf.Ticker(ticker)
+        per = stock.fast_info.get("pe_ratio")
 
-    per = info.get("trailingPE")
-    if per and 5 < per < 25:
-        score += 25
-        justificacion.append("✔️ PER en rango saludable")
-    else:
-        justificacion.append("❌ PER extremo o nulo")
+        if per and 5 < per < 25:
+            score += 25
+            justificacion.append("✔️ PER en rango saludable (5–25)")
+        else:
+            justificacion.append("❌ PER extremo o no disponible")
 
-    roe = info.get("returnOnEquity")
-    if roe and roe > 0.15:
-        score += 25
-        justificacion.append("✔️ ROE alto")
-    else:
-        justificacion.append("❌ ROE bajo o nulo")
+        income_stmt = stock.income_stmt
+        bs = stock.balance_sheet
 
-    margin = info.get("profitMargins")
-    if margin and margin > 0.15:
-        score += 20
-        justificacion.append("✔️ Margen de beneficio alto")
-    else:
-        justificacion.append("❌ Margen bajo")
+        if "Net Income" in income_stmt.index and "Total Stockholder Equity" in bs.index:
+            ni = income_stmt.loc["Net Income"].iloc[0]
+            equity = bs.loc["Total Stockholder Equity"].iloc[0]
+            if equity != 0:
+                roe = ni / equity
+                if roe > 0.15:
+                    score += 25
+                    justificacion.append("✔️ ROE alto (>15%)")
+                else:
+                    justificacion.append("❌ ROE bajo")
+            else:
+                justificacion.append("⚠️ Equity es cero")
+        else:
+            justificacion.append("⚠️ No hay datos para ROE")
 
-    debt = info.get("debtToEquity")
-    if debt and debt < 100:
-        score += 20
-        justificacion.append("✔️ Deuda controlada")
-    else:
-        justificacion.append("❌ Deuda elevada")
+        if "Net Income" in income_stmt.index and "Total Revenue" in income_stmt.index:
+            ni = income_stmt.loc["Net Income"].iloc[0]
+            tr = income_stmt.loc["Total Revenue"].iloc[0]
+            if tr != 0:
+                margin = ni / tr
+                if margin > 0.15:
+                    score += 20
+                    justificacion.append("✔️ Margen >15%")
+                else:
+                    justificacion.append("❌ Margen bajo")
+        else:
+            justificacion.append("⚠️ No hay datos de ingresos totales")
 
-    if info.get("dividendYield"):
-        score += 10
-        justificacion.append("✔️ Ofrece dividendos")
-    else:
-        justificacion.append("❌ No ofrece dividendos")
+        if "Total Debt" in bs.index and "Total Stockholder Equity" in bs.index:
+            debt = bs.loc["Total Debt"].iloc[0]
+            equity = bs.loc["Total Stockholder Equity"].iloc[0]
+            if equity != 0:
+                ratio = debt / equity
+                if ratio < 1:
+                    score += 20
+                    justificacion.append("✔️ Deuda/patrimonio <1")
+                else:
+                    justificacion.append("❌ Deuda elevada")
+        else:
+            justificacion.append("⚠️ No hay datos de deuda/equity")
 
-    return score, justificacion
+        dividend_yield = stock.fast_info.get("dividend_yield")
+        if dividend_yield and dividend_yield > 0:
+            score += 10
+            justificacion.append("✔️ Ofrece dividendos")
+        else:
+            justificacion.append("❌ No ofrece dividendos")
+
+    except Exception as e:
+        return 50, [f"⚠️ Error en análisis fundamental: {e}"]
+
+    return int(score), justificacion
 
 # Análisis de sentimiento desde RSS público
 def analizar_sentimiento_rss(ticker):
@@ -145,34 +173,31 @@ def analizar_sentimiento_rss(ticker):
 
     total = positives + negatives + neutrals
     if total == 0:
-        return 50, ["❌ Sin resultados útiles para análisis."]
+        return 50, ["❌ No se puede evaluar sentimiento."]
 
     pct_pos = positives / total * 100
     if pct_pos > 60:
-        return 85, ["✔️ Sentimiento claramente positivo"]
+        return 85, ["✔️ Sentimiento positivo predominante"]
     elif pct_pos < 40:
         return 30, ["❌ Sentimiento negativo dominante"]
     else:
-        return 55, ["⚖️ Sentimiento mixto o neutro"]
+        return 55, ["⚖️ Sentimiento mixto"]
 
-# Consolidar resultado final
+# Consolidar
 def resumen_final(score_t, score_f, score_s):
     media = int((score_t + score_f + score_s) / 3)
     if media >= 75:
-        resumen = "📈 Alta recomendación de inversión basada en datos técnicos, fundamentales y sociales."
+        resumen = "📈 Alta recomendación de inversión."
     elif media >= 50:
-        resumen = "⚖️ Recomendación moderada. Existen señales mixtas entre las fuentes analizadas."
+        resumen = "⚖️ Recomendación moderada."
     else:
-        resumen = "📉 Baja recomendación de inversión. Precaución ante señales negativas o débiles."
-
+        resumen = "📉 Baja recomendación de inversión."
     return media, resumen
 
-# Ejecutar análisis
+# Ejecución principal
 if ticker:
     df = descargar_datos(ticker)
     if not df.empty:
-        info = yf.Ticker(ticker).info
-
         st.subheader("📈 Análisis Técnico")
         score_t, razones_t, df = analizar_tecnico(df)
         st.slider("Score Técnico", 0, 100, score_t, disabled=True)
@@ -180,27 +205,25 @@ if ticker:
             st.caption(r)
 
         st.subheader("📊 Análisis Fundamental")
-        score_f, razones_f = analizar_fundamental(info)
+        score_f, razones_f = analizar_fundamental(ticker)
         st.slider("Score Fundamental", 0, 100, score_f, disabled=True)
         for r in razones_f:
             st.caption(r)
 
-        st.subheader("💬 Sentimiento (Noticias Yahoo Finance)")
+        st.subheader("💬 Sentimiento en Noticias")
         score_s, razones_s = analizar_sentimiento_rss(ticker)
         st.slider("Score Sentimiento", 0, 100, score_s, disabled=True)
         for r in razones_s:
             st.caption(r)
 
-        # Justificación global
         st.markdown("---")
-        st.subheader("✅ Justificación Consolidada")
+        st.subheader("✅ Recomendación Consolidada")
         final_score, resumen = resumen_final(score_t, score_f, score_s)
-        st.metric("Recomendación Global", f"{final_score}/100")
+        st.metric("Score Global", f"{final_score}/100")
         st.info(resumen)
 
-        # Gráfico final
         st.markdown("---")
-        st.subheader("📉 Evolución de Precio (último año) con SMA y MACD")
+        st.subheader("📉 Gráfico del último año (con SMA)")
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.plot(df.index, df['Close'], label='Precio', linewidth=1.5)
         ax.plot(df.index, df['SMA20'], label='SMA20', linestyle='--')
@@ -209,4 +232,5 @@ if ticker:
         ax.legend()
         st.pyplot(fig)
     else:
-        st.warning("No se encontraron datos históricos.")
+        st.warning("⚠️ No se encontraron datos históricos.")
+
