@@ -53,6 +53,7 @@ def get_all_stock_tickers():
     # Subconjunto representativo; puede ampliarse o leerse desde archivo
     return {
         "AAPL": "Apple (NASDAQ)",
+        "ACN": "Accenture (NASDAQ)",
         "MSFT": "Microsoft (NASDAQ)",
         "GOOGL": "Alphabet (NASDAQ)",
         "AMZN": "Amazon (NASDAQ)",
