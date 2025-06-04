@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 
 def generar_grafico_precio(df, ticker):
-    fig, axs = plt.subplots(3, 1, figsize=(10, 4.2), sharex=True, gridspec_kw={'height_ratios': [2, 1, 1]})
+    fig, axs = plt.subplots(3, 1, figsize=(10, 4.2), sharex=True, gridspec_kw={'height_ratios': [4, 1, 1]})
     fig.subplots_adjust(hspace=0.15)
 
     # Calcular líneas necesarias si no existen
