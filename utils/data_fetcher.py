@@ -4,7 +4,7 @@ import pandas as pd
 def get_sp500_tickers():
     # Lista simplificada o puedes parsear desde Wikipedia
     return [
-        "AAPL", "AC", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "JPM", "JNJ", "V", "PG"
+        "AAPL", "ACN", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "JPM", "JNJ", "V", "PG"
     ]
 
 def get_nasdaq100_tickers():
