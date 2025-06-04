@@ -16,18 +16,19 @@ nltk.download("vader_lexicon")
 st.set_page_config(layout="wide")
 st.markdown("""
     <style>
-        body, .stApp {
-            background-color: #121212;
-            color: #E0E0E0;
+        html, body, .stApp {
+            background-color: #ffffff;
+            color: #222222;
+            font-size: 14px;
         }
-        .css-18e3th9 {
-            background-color: #1e1e1e;
+        h1, h2, h3, h4 {
+            font-size: 15px;
         }
         .stSlider > div > div {
-            background: #2c2c2c;
+            background: #f0f0f0;
         }
-        .st-bb {
-            color: #ffffff;
+        .css-1d391kg {
+            font-size: 13px !important;
         }
     </style>
 """, unsafe_allow_html=True)
