@@ -14,6 +14,7 @@ from utils.technical_analysis import analizar_tecnico
 from utils.fundamental_analysis import analizar_fundamental
 from utils.sentiment_analysis import analizar_sentimiento_noticias
 from utils.charts import generar_grafico_precio
+
 from components.cards import render_score_card
 from auto_analysis import ejecutar_analisis_programado
 
@@ -26,23 +27,23 @@ st.markdown("""
         html, body, .stApp {
             background-color: #ffffff;
             color: #222222;
-            font-size: 13px;
+            font-size: 14px;
             font-family: 'Aptos', sans-serif;
         }
         h1, h2, h3, h4 {
-            font-size: 14px;
+            font-size: 16px;
             font-family: 'Aptos', sans-serif;
         }
         .stSlider > div > div {
             background: #f0f0f0;
         }
         .css-1d391kg {
-            font-size: 12px !important;
+            font-size: 14px !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Análisis Integral de Acciones")
+st.title("Análisis Integral de Acciones")
 
 st.sidebar.header("🔎 Selección de Activo")
 tipo_activo = st.sidebar.selectbox("Tipo de activo", ["Índice", "Acción"])
@@ -81,7 +82,7 @@ if ticker:
         with col_main:
             st.subheader("📈 Resultados")
 
-            score_t, razones_t, df, detalles_t, tendencias_t, rec_tecnica = analizar_tecnico(df)
+            score_t, razones_t, df, detalles_t, tendencias_t = analizar_tecnico(df)
             if not es_indice:
                 score_f, razones_f = analizar_fundamental(ticker)
             else:
@@ -92,7 +93,7 @@ if ticker:
 
             col_t, col_f, col_s = st.columns(3)
             with col_t:
-                render_score_card("Análisis Técnico", score_t, razones_t + ["**🔎 Recomendación técnica:**", rec_tecnica], color_por_score(score_t))
+                render_score_card("Análisis Técnico", score_t, razones_t, color_por_score(score_t))
             with col_f:
                 render_score_card("Análisis Fundamental", score_f, razones_f, color_por_score(score_f))
             with col_s:
@@ -194,8 +195,3 @@ if ticker:
                 st.info("La generación de análisis por IA está desactivada.")
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
-
-
-
-
-
