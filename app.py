@@ -1,5 +1,8 @@
 import streamlit as st
 import nltk
+import os
+import pandas as pd
+from auto_analysis import ejecutar_analisis_programado
 
 from config import COLORS
 from utils.data_fetcher import (
@@ -151,5 +154,23 @@ if ticker:
                     st.error(f"Error al llamar a OpenAI: {e}")
             else:
                 st.info("La generación de análisis por IA está desactivada.")
+    st.markdown("---")
+
+    st.subheader("📅 Análisis Automático")
+    
+    if st.button("Ejecutar análisis y guardar histórico"):
+        resultado = ejecutar_analisis_programado(ticker)
+        if resultado:
+            st.success(f"Análisis ejecutado para {ticker} y guardado.")
+        else:
+            st.warning(f"No se pudo ejecutar el análisis para {ticker}.")
+    
+    # Mostrar histórico si existe
+    csv_file = f"historico_{ticker.replace('^', '')}.csv"
+    if os.path.exists(csv_file):
+        df_hist = pd.read_csv(csv_file)
+        st.subheader(f"📚 Histórico de análisis para {ticker}")
+        st.dataframe(df_hist.tail(10))
+    
     else:
         st.warning("⚠️ No se encontraron datos históricos.")
