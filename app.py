@@ -14,6 +14,7 @@ from utils.technical_analysis import analizar_tecnico
 from utils.fundamental_analysis import analizar_fundamental
 from utils.sentiment_analysis import analizar_sentimiento_noticias
 from utils.charts import generar_grafico_precio
+
 from components.cards import render_score_card
 from auto_analysis import ejecutar_analisis_programado
 
