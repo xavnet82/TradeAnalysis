@@ -31,19 +31,19 @@ st.markdown("""
             font-family: 'Aptos', sans-serif;
         }
         h1, h2, h3, h4 {
-            font-size: 14px;
+            font-size: 16px;
             font-family: 'Aptos', sans-serif;
         }
         .stSlider > div > div {
             background: #f0f0f0;
         }
         .css-1d391kg {
-            font-size: 12px !important;
+            font-size: 14px !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Análisis Integral de Acciones")
+st.title("Análisis Integral de Acciones")
 
 st.sidebar.header("🔎 Selección de Activo")
 tipo_activo = st.sidebar.selectbox("Tipo de activo", ["Índice", "Acción"])
