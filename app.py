@@ -27,7 +27,7 @@ st.markdown("""
         html, body, .stApp {
             background-color: #ffffff;
             color: #222222;
-            font-size: 13px;
+            font-size: 14px;
             font-family: 'Aptos', sans-serif;
         }
         h1, h2, h3, h4 {
