@@ -25,7 +25,7 @@ def get_ibex35_tickers():
 def get_nasdaq_tickers():
     # Lista ejemplo – idealmente sustituible por parsing o fuente externa
     return [
-        "AAPL", "TSLA", "NVDA", "AMD", "INTC", "PYPL", "ADBE", "NFLX"
+        "AAPL", "ACN", "TSLA", "NVDA", "AMD", "INTC", "PYPL", "ADBE", "NFLX"
     ]
 
 def descargar_datos(ticker, periodo="1y", intervalo="1d"):
